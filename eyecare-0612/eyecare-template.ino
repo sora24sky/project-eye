@@ -11,10 +11,10 @@
 #define SCREEN_ADDRESS 0x3C 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// --- 設定 ---
-const char* ssid     = "Rakuten-7FBC";       
-const char* password = "4TGJCN62EC2VQJAR";   
-const char* pc_ip    = "192.168.0.27";
+// --- 設定 (各自の環境に合わせて書き換えてください) ---
+const char* ssid     = "YOUR_WIFI_SSID";       
+const char* password = "YOUR_WIFI_PASSWORD";   
+const char* pc_ip    = "192.168.x.x"; // PCのIPアドレス
 const int udp_port   = 5005;
 
 const int trigPin   = 2;
@@ -23,8 +23,8 @@ const int ledGreen  = 5;
 const int ledRed    = 6;
 const int buzzerPin = 7;
 
-const unsigned long WORK_LIMIT   = 3000;  // テスト用：3秒（本番は 1200000UL）
-const unsigned long RELAX_LIMIT  = 20000; // 休憩20秒
+const unsigned long WORK_LIMIT   = 1200000UL; // 20分 (テスト時は3000等に変更)
+const unsigned long RELAX_LIMIT  = 20000;    // 休憩20秒
 const float DISTANCE_THRESHOLD   = 80.0f; 
 
 // --- 状態管理 ---
@@ -73,7 +73,6 @@ void loop() {
             digitalWrite(ledGreen, HIGH);
             digitalWrite(ledRed, LOW);
 
-            // 距離測定
             digitalWrite(trigPin, LOW); delayMicroseconds(2);
             digitalWrite(trigPin, HIGH); delayMicroseconds(10);
             digitalWrite(trigPin, LOW);
@@ -85,7 +84,6 @@ void loop() {
                 validDetectionCounter = 0;
             }
 
-            // 残り時間計算
             unsigned long timeLeft = (WORK_LIMIT > accumulatedTime) ? (WORK_LIMIT - accumulatedTime) : 0;
             unsigned long r_min = (timeLeft / 1000) / 60;
             unsigned long r_sec = (timeLeft / 1000) % 60;
@@ -98,7 +96,6 @@ void loop() {
             if (r_sec < 10) display.print("0"); display.println(r_sec);
             display.println("--------------------");
 
-            // ゲージ描画
             int barWidth = (accumulatedTime * 128) / WORK_LIMIT;
             display.fillRect(0, 56, min(barWidth, 128), 8, SSD1306_WHITE);
 
@@ -116,7 +113,6 @@ void loop() {
             unsigned long relaxElapsed = currentTime - relaxStartTime;
             digitalWrite(ledGreen, HIGH);
 
-            // アラート動作（4回点滅・吹鳴）
             if (alertCount < 4 && currentTime - lastAlertAction >= 500) {
                 lastAlertAction = currentTime;
                 alertToggle = !alertToggle;
@@ -138,7 +134,6 @@ void loop() {
             display.setTextSize(1);
             display.println("\n--------------------");
 
-            // 休憩ゲージ
             int relaxBarWidth = (relaxElapsed * 128) / RELAX_LIMIT;
             display.fillRect(0, 56, min(relaxBarWidth, 128), 8, SSD1306_WHITE);
 

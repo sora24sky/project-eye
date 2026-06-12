@@ -6,8 +6,8 @@ import os
 import subprocess
 from datetime import datetime
 
-# --- 設定 ---
-GAS_URL = "https://script.google.com/macros/s/AKfycbxCZkKFi-yGsh0trkHJZ7zxDeUBuyS9As8yP-8j_kkoWWluo1oJVCQF41IW4X_vKJjIBw/exec"
+# --- 設定 (各自の環境に合わせて書き換えてください) ---
+GAS_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL"
 UDP_IP = "0.0.0.0"
 UDP_PORT = 5005
 
@@ -26,7 +26,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
 
 print("==================================================")
-print("  PC Smart Eye-Care Gateway (Windows Optimized)")
+print("  PC Smart Eye-Care Gateway (Template)")
 print("==================================================")
 print(f"Listening on UDP port {UDP_PORT}...\n")
 
@@ -49,11 +49,11 @@ try:
             flush_input_buffer()
             input("\n\n20秒経過しました。[Enter] を押して再開してください。")
 
-            # 先に Arduino をリセットして待機状態に戻す（体感レスポンス向上）
+            # 先に Arduino をリセットして待機状態に戻す
             sock.sendto(b"RESET_OK", addr)
             print(">> Sent RESET signal to Arduino.")
 
-            # バックグラウンドで Google Sheets に記録
+            # Google Sheets に記録
             print("--> Logging to Google Sheets...")
             try:
                 payload = json.dumps({"message": "EYE_CARE_COMPLETE"}).encode("utf-8")
