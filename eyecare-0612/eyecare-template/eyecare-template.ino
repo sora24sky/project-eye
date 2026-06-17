@@ -152,10 +152,19 @@ void loop() {
             display.println("\nPress [Enter] on PC");
             display.println("to resume work mode.");
 
-            if (udp.parsePacket()) {
-                accumulatedTime = 0;
-                validDetectionCounter = 0;
-                currentState = STATE_MONITORING;
+            int packetSize = udp.parsePacket();
+            if (packetSize > 0) {
+                char packetBuffer[32];
+                int len = udp.read(packetBuffer, sizeof(packetBuffer) - 1);
+                if (len > 0) {
+                    packetBuffer[len] = '\0';
+                }
+                
+                if (strcmp(packetBuffer, "RESET_OK") == 0) {
+                    accumulatedTime = 0;
+                    validDetectionCounter = 0;
+                    currentState = STATE_MONITORING;
+                }
             }
             break;
     }
