@@ -15,15 +15,37 @@
 ## システム連携図
 
 ```mermaid
-graph TD
-    A[Arduino] -- "① 20分経過 (UDP: TIME_UP)" --> B[Python]
-    B -- "② Windows通知を表示" --> C[ユーザー]
-    C -- "③ 20秒休憩" --> C
-    C -- "④-A センサーに手かざし (1秒)" --> A
-    C -- "④-B PCでEnterキー入力" --> B
-    B -- "⑤-B 再開信号 (UDP: RESET_OK)" --> A
-    A -- "⑥ RESTART_EVENT → Python" --> B
-    B -- "⑦ Googleスプレッドシートにログ記録" --> B
+flowchart TD
+    %% ノードのスタイル定義
+    classDef arduino fill:#E1F5FE,stroke:#0288D1,stroke-width:2px;
+    classDef python fill:#FFF9C4,stroke:#FBC02D,stroke-width:2px;
+    classDef user fill:#FFE0B2,stroke:#F57C00,stroke-width:2px;
+    classDef gas fill:#E8F5E9,stroke:#388E3C,stroke-width:2px;
+
+    User["👥 ユーザー"]:::user
+    GAS["📊 Googleスプレッドシート<br/>(GAS 直接送信)"]:::gas
+
+    subgraph Hardware ["🤖 Arduino (本体・必須)"]
+        Arduino["Arduino UNO R4"]:::arduino
+    end
+
+    subgraph Software ["💻 PC (任意連携)"]
+        Python["Python (udp-logger.py)"]:::python
+    end
+
+    %% フロー関係
+    Arduino -->|① 20分経過<br/>UDP: TIME_UP| Python
+    Python -->|② Windows通知を表示| User
+    User -->|③ 20秒休憩| User
+
+    %% 再開分岐
+    User -->|④-A センサーに手かざし 1秒| Arduino
+    User -->|④-B PCでEnterキー入力| Python
+    Python -->|⑤-B 再開信号<br/>UDP: RESET_OK| Arduino
+
+    %% ログ記録
+    Arduino -->|⑥ ログ送信<br/>HTTPS POST| GAS
+    GAS -.->|⑦ 次のサイクルへ| Arduino
 ```
 
 ## 各コンポーネントの役割
@@ -34,11 +56,10 @@ graph TD
 *   **休憩誘導**: 休憩時間になるとOLEDに残り秒数を表示し、赤LEDとブザー（ドラクエ・ポケモン回復風メロディ）でアラートを出します。
 *   **再開検知**: センサーへの手かざし（15cm以内で1秒）、またはPC側からの再開合図を受信して計測モードに復帰します。
 
-### 2. Python Gateway (`udp-logger.py`) ※必須
+### 2. Python Gateway (`udp-logger.py`) ※任意
 *   **通知**: Arduinoからの信号を受け取り、Windowsのデスクトップ通知を表示します。
 *   **休憩管理**: 20秒のカウントダウンを画面に表示します。
-*   **記録**: 再開が検知されると、Googleスプレッドシートにログを送信します。
-*   **制御**: ユーザーがEnterキーを押すと、Arduinoに再開の信号を返します（バックアップ操作）。
+*   **制御**: ユーザーがEnterキーを押すと、Arduinoに再開の信号（UDP: `RESET_OK`）を返します（バックアップ操作）。
 
 ## 導入方法
 
