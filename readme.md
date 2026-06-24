@@ -86,7 +86,7 @@ flowchart TD
 2.  20分経過するとArduinoが休憩モード（20秒）に入ります。（PCでPythonを起動している場合はWindows通知も届きます）
 3.  20秒経過後、超音波センサーに手をかざす（15cm以内で1秒間）と、次のサイクルが始まりGoogleスプレッドシートに自動でログが記録されます。PCでEnterキーを押すことでも再開できます。
 
-[アイケアスプレッドシート　ログ](https://docs.google.com/spreadsheets/d/1GVeTNaiIqg9THnKGMKAm8ZsvyVecBAWqQ8LLO331-pg/edit?usp=sharing)
+[アイケアスプレッドシート　ログ](https://docs.google.com/spreadsheets/d/1GVeTNaiIqg9THnKGMKAm8ZsvyVecBAWqQ8LLO331-pg/edit?usp=sharing)  
 [アイケアテスト動画](https://youtube.com/shorts/iXKd-fRjQpk?feature=share)
 
 ![回路図（6/15更新）](image.png)
