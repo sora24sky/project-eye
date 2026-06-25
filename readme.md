@@ -92,5 +92,16 @@ flowchart TD
 3. 「デプロイ」 ＞ 「デプロイの管理」からバージョンを「新バージョン」にして再デプロイします。
 
 ### 3. Python（PC）のセットアップ
-1. `udp-logger.py` 内の `GAS_URL` を、ご自身のWebアプリデプロイURLに書き換えます。
+1. `udp-logger.py` 内の `GAS_URL` を, ご自身のWebアプリデプロイURLに書き換えます。
 2. コマンドプロンプトやPowerShellで `python udp-logger.py` を実行してゲートウェイを起動します。
+
+---
+
+> [!NOTE]
+> **デモ動画についての注意点**
+> 動作デモなどの動画は **2026/06/22 時点**の映像です。そのため、それ以降に実装された最新の機能（一時停止時のマリオ風ポーズ音や、OLED自動スリープ機能など）は動画内には反映されていませんのでご了承ください。
+
+[アイケアスプレッドシート　ログ](https://docs.google.com/spreadsheets/d/1GVeTNaiIqg9THnKGMKAm8ZsvyVecBAWqQ8LLO331-pg/edit?usp=sharing)  
+[アイケアテスト動画](https://youtube.com/shorts/iXKd-fRjQpk?feature=share)
+
+![回路図（6/15更新）](image.png)

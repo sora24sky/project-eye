@@ -69,6 +69,37 @@ function doPost(e) {
 }
 
 // ------------------------------------------------------------
+//  PC側（PowerShell自動実行）から前日分のグラフ画像データを取得するためのエンドポイント
+// ------------------------------------------------------------
+function doGet(e) {
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() - 1); // 1日前（昨日）
+
+  try {
+    // 昨日のダッシュボードを集計・更新して確定
+    updateDashboard_(targetDate);
+    
+    // 昨日のグラフ画像をBase64で取得
+    const archiveData = getDailyChartAsBase64_(targetDate);
+    
+    const response = {
+      status: "OK",
+      archive: archiveData // { filename: "...", data: "Base64..." } または null
+    };
+    
+    return ContentService.createTextOutput(JSON.stringify(response))
+                         .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    const errorResponse = {
+      status: "ERROR",
+      message: err.toString()
+    };
+    return ContentService.createTextOutput(JSON.stringify(errorResponse))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// ------------------------------------------------------------
 //  手動でグラフを再描画したいときはこの関数を実行する
 // ------------------------------------------------------------
 function updateDashboard() {
