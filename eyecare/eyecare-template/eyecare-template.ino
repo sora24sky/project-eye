@@ -12,6 +12,8 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // --- 音階の定義 ---
+#define NOTE_C5  523
+#define NOTE_E5  659
 #define NOTE_GS5 831
 #define NOTE_A5  880
 #define NOTE_B5  988
@@ -49,6 +51,11 @@ const unsigned long  GESTURE_DURATION       = 1000;
 unsigned long handGestureStartTime = 0;
 bool isHandDetected = false;
 
+// --- スリープ設定 ---
+const unsigned long SLEEP_TIMEOUT = 300000UL; // 本番用：5分 (テスト検証時は 10000UL に変更可能)
+unsigned long lastPresenceTime = 0;
+bool isOledSleeping = false;
+
 // --- 状態管理 ---
 enum SystemState { STATE_MONITORING, STATE_RELAXING, STATE_WAIT_ENTER, STATE_PAUSED };
 SystemState currentState = STATE_MONITORING;
@@ -78,6 +85,15 @@ void drawCenteredString(const char* buf, int y, int size) {
 // ============================================================
 //  メロディ
 // ============================================================
+void playPauseMelody() {
+    Serial.println(">>> Playing: Mario Pause Melody");
+    tone(buzzerPin, NOTE_E6, 80);  delay(90);
+    tone(buzzerPin, NOTE_C6, 80);  delay(90);
+    tone(buzzerPin, NOTE_E6, 80);  delay(90);
+    tone(buzzerPin, NOTE_C6, 80);  delay(90);
+    noTone(buzzerPin);
+}
+
 void playInnMelody() {
     Serial.println(">>> Playing: Dragon Quest Inn Melody");
     tone(buzzerPin, NOTE_D6, 312);  delay(312);
@@ -115,7 +131,8 @@ void sendLogToGAS(const char* trigger) {
     Serial.print(trigger);
     Serial.println(")");
 
-    String body = String("{\"message\":\"EYE_CARE_COMPLETE\",\"trigger\":\"") + trigger + "\"}";
+    // 送信元を識別するため client: "arduino" を追加
+    String body = String("{\"message\":\"EYE_CARE_COMPLETE\",\"trigger\":\"") + trigger + "\",\"client\":\"arduino\"}";
     String location = "";
 
     // --- Step 1: GASにPOSTして Locationヘッダ（リダイレクト先）を取得 ---
@@ -237,6 +254,7 @@ void setup() {
 
     udp.begin(udp_port);
     lastCheckTime = millis();
+    lastPresenceTime = millis();
     delay(1000);
 }
 
@@ -248,7 +266,32 @@ void loop() {
     unsigned long elapsedTime = currentTime - lastCheckTime;
     lastCheckTime = currentTime;
 
-    display.clearDisplay();
+    // --- 超音波センサーで距離測定 (共通化) ---
+    digitalWrite(trigPin, LOW);  delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH); delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+    float distance = pulseIn(echoPin, HIGH, 10000) * 0.0343f / 2.0f;
+
+    // --- スリープ制御 ---
+    // 距離が80cm以内、または現在の状態が休憩モード(STATE_RELAXING)の場合は「人がいる」と判定
+    bool personPresent = (distance > 0 && distance <= DISTANCE_THRESHOLD) || (currentState == STATE_RELAXING);
+
+    if (personPresent) {
+        lastPresenceTime = currentTime;
+        if (isOledSleeping) {
+            display.ssd1306_command(SSD1306_DISPLAYON);
+            isOledSleeping = false;
+        }
+    } else {
+        if (!isOledSleeping && (currentTime - lastPresenceTime >= SLEEP_TIMEOUT)) {
+            display.ssd1306_command(SSD1306_DISPLAYOFF);
+            isOledSleeping = true;
+        }
+    }
+
+    if (!isOledSleeping) {
+        display.clearDisplay();
+    }
 
     switch (currentState) {
 
@@ -257,22 +300,14 @@ void loop() {
             digitalWrite(ledGreen, HIGH);
             digitalWrite(ledRed,   LOW);
 
-            // 超音波センサーで距離測定
-            digitalWrite(trigPin, LOW);  delayMicroseconds(2);
-            digitalWrite(trigPin, HIGH); delayMicroseconds(10);
-            digitalWrite(trigPin, LOW);
-            float distance = pulseIn(echoPin, HIGH, 10000) * 0.0343f / 2.0f;
-
             // --- 手かざしによる一時停止（中断）検知 (15cm以内を1秒間) ---
             if (distance > 0 && distance <= HAND_GESTURE_THRESHOLD) {
                 if (!isHandDetected) {
                     isHandDetected        = true;
                     handGestureStartTime  = millis();
                 } else if (millis() - handGestureStartTime >= GESTURE_DURATION) {
-                    // 一時停止音 (ピッと低めの音)
-                    tone(buzzerPin, 1000, 300);
-                    delay(300);
-                    noTone(buzzerPin);
+                    // 一時停止音 (マリオのポーズ音)
+                    playPauseMelody();
 
                     currentState          = STATE_PAUSED;
                     isHandDetected        = false;
@@ -297,21 +332,24 @@ void loop() {
             unsigned long r_min = (timeLeft / 1000) / 60;
             unsigned long r_sec = (timeLeft / 1000) % 60;
 
-            drawCenteredString("=== EYE-CARE SYS ===", 0, 1);
-            drawCenteredString("Status: WORKING", 10, 1);
-            drawCenteredString(("Dist: " + String(distance, 1) + " cm").c_str(), 22, 1);
+            if (!isOledSleeping) {
+                drawCenteredString("WORKING", 0, 1);
 
-            char timeBuf[16];
-            sprintf(timeBuf, "Time: %02lu:%02lu", r_min, r_sec);
-            drawCenteredString(timeBuf, 34, 1);
+                char timeBuf[16];
+                sprintf(timeBuf, "%02lu:%02lu", r_min, r_sec);
+                drawCenteredString(timeBuf, 12, 2);
 
-            drawCenteredString("--------------------", 46, 1);
+                drawCenteredString(("Dist: " + String(distance, 1) + " cm").c_str(), 34, 1);
+                drawCenteredString("Hold hand to pause", 46, 1);
 
-            int barWidth = (accumulatedTime * 128) / WORK_LIMIT;
-            display.fillRect(0, 56, min(barWidth, 128), 8, SSD1306_WHITE);
+                int barWidth = (accumulatedTime * 128) / WORK_LIMIT;
+                display.fillRect(0, 57, min(barWidth, 128), 7, SSD1306_WHITE);
+            }
 
             if (accumulatedTime >= WORK_LIMIT) {
-                display.display(); // 画面を確定してからブザー開始（I2C書き込みとブザー音を重ねない）
+                if (!isOledSleeping) {
+                    display.display(); // 画面を確定してからブザー開始（I2C書き込みとブザー音を重ねない）
+                }
                 playInnMelody();
                 udp.beginPacket(pc_ip, udp_port);
                 udp.print("TIME_UP"); // PC通知スクリプトを使う場合のために送信
@@ -328,22 +366,14 @@ void loop() {
             digitalWrite(ledGreen, LOW);
             digitalWrite(ledRed,   LOW);
 
-            // 超音波センサーで距離測定
-            digitalWrite(trigPin, LOW);  delayMicroseconds(2);
-            digitalWrite(trigPin, HIGH); delayMicroseconds(10);
-            digitalWrite(trigPin, LOW);
-            float distance = pulseIn(echoPin, HIGH, 10000) * 0.0343f / 2.0f;
-
             // --- 手かざしによる再開検知 (15cm以内を1秒間) ---
             if (distance > 0 && distance <= HAND_GESTURE_THRESHOLD) {
                 if (!isHandDetected) {
                     isHandDetected        = true;
                     handGestureStartTime  = millis();
                 } else if (millis() - handGestureStartTime >= GESTURE_DURATION) {
-                    // 再開音 (ピッと高めの音)
-                    tone(buzzerPin, 1500, 300);
-                    delay(300);
-                    noTone(buzzerPin);
+                    // 再開音 (マリオのポーズ音)
+                    playPauseMelody();
 
                     currentState          = STATE_MONITORING;
                     isHandDetected        = false;
@@ -354,16 +384,16 @@ void loop() {
                 isHandDetected = false;
             }
 
-            drawCenteredString("=== PAUSED ===", 0, 1);
-            drawCenteredString("HOLD", 20, 2);
-            drawCenteredString("HAND", 40, 2);
+            if (!isOledSleeping) {
+                drawCenteredString("-- PAUSED --", 2, 1);
+                drawCenteredString("HOLD HAND", 16, 2);
+                drawCenteredString("to Resume", 38, 1);
 
-            if (isHandDetected) {
-                unsigned long elapsed = millis() - handGestureStartTime;
-                int barWidth = (elapsed * 128) / GESTURE_DURATION;
-                display.fillRect(0, 56, min(barWidth, 128), 8, SSD1306_WHITE);
-            } else {
-                drawCenteredString("to Resume Monitoring", 56, 1);
+                if (isHandDetected) {
+                    unsigned long elapsed = millis() - handGestureStartTime;
+                    int barWidth = (elapsed * 128) / GESTURE_DURATION;
+                    display.fillRect(0, 57, min(barWidth, 128), 7, SSD1306_WHITE);
+                }
             }
             break;
         }
@@ -376,20 +406,22 @@ void loop() {
             unsigned long relaxElapsed = currentTime - relaxStartTime;
             unsigned long r_relax = (RELAX_LIMIT > relaxElapsed) ? (RELAX_LIMIT - relaxElapsed) : 0;
 
-            drawCenteredString("=== RELAX TIME ===", 0, 1);
-            drawCenteredString("Status: RESTING", 10, 1);
-            drawCenteredString("--------------------", 20, 1);
+            if (!isOledSleeping) {
+                drawCenteredString("RELAX TIME", 2, 2);
+                drawCenteredString("Look away!", 22, 1);
 
-            String relaxStr = String((r_relax + 999) / 1000) + " sec";
-            drawCenteredString(relaxStr.c_str(), 30, 2);
+                char relaxBuf[16];
+                sprintf(relaxBuf, "%lu sec", (r_relax + 999) / 1000);
+                drawCenteredString(relaxBuf, 34, 2);
 
-            drawCenteredString("--------------------", 46, 1);
-
-            int relaxBarWidth = (relaxElapsed * 128) / RELAX_LIMIT;
-            display.fillRect(0, 56, min(relaxBarWidth, 128), 8, SSD1306_WHITE);
+                int relaxBarWidth = (relaxElapsed * 128) / RELAX_LIMIT;
+                display.fillRect(0, 57, min(relaxBarWidth, 128), 7, SSD1306_WHITE);
+            }
 
             if (relaxElapsed >= RELAX_LIMIT) {
-                display.display(); // 画面を確定してからブザー開始（I2C書き込みとブザー音を重ねない）
+                if (!isOledSleeping) {
+                    display.display(); // 画面を確定してからブザー開始（I2C書き込みとブザー音を重ねない）
+                }
                 playPokemonHealMelody();
 
                 // 古いパケットを破棄してから待機モードへ
@@ -407,12 +439,6 @@ void loop() {
         case STATE_WAIT_ENTER: {
             digitalWrite(ledGreen, LOW);
             digitalWrite(ledRed,   LOW);
-
-            // 超音波センサーで距離測定
-            digitalWrite(trigPin, LOW);  delayMicroseconds(2);
-            digitalWrite(trigPin, HIGH); delayMicroseconds(10);
-            digitalWrite(trigPin, LOW);
-            float distance = pulseIn(echoPin, HIGH, 10000) * 0.0343f / 2.0f;
 
             // --- 手かざし再開 (15cm以内を1秒間) ---
             if (distance > 0 && distance <= HAND_GESTURE_THRESHOLD) {
@@ -453,21 +479,25 @@ void loop() {
                 break;
             }
 
-            drawCenteredString("=== READY? ===", 0, 1);
-            drawCenteredString("HOLD", 20, 2);
-            drawCenteredString("HAND", 40, 2);
+            if (!isOledSleeping) {
+                drawCenteredString("-- READY? --", 2, 1);
+                drawCenteredString("HOLD HAND", 16, 2);
+                drawCenteredString("to Start", 38, 1);
 
-            if (isHandDetected) {
-                unsigned long elapsed = millis() - handGestureStartTime;
-                int barWidth = (elapsed * 128) / GESTURE_DURATION;
-                display.fillRect(0, 56, min(barWidth, 128), 8, SSD1306_WHITE);
-            } else {
-                drawCenteredString("or UDP from PC", 56, 1);
+                if (isHandDetected) {
+                    unsigned long elapsed = millis() - handGestureStartTime;
+                    int barWidth = (elapsed * 128) / GESTURE_DURATION;
+                    display.fillRect(0, 57, min(barWidth, 128), 7, SSD1306_WHITE);
+                } else {
+                    drawCenteredString("or UDP from PC", 48, 1);
+                }
             }
             break;
         }
     }
 
-    display.display();
+    if (!isOledSleeping) {
+        display.display();
+    }
     delay(50);
 }

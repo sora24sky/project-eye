@@ -1,16 +1,28 @@
 # Smart Eye-Care System
 
-このプロジェクトは、超音波センサーでユーザーの着席を検知し、20分の作業ごとに20秒の目の休憩を促す「スマート眼精疲労防止ガジェット」です。Arduino (UNOR4 WiFi) と Python (Windowsゲートウェイ) が連携して動作します。
+このプロジェクトは、超音波センサーでユーザーの着席を検知し、20分の作業ごとに20秒の目の休憩を促す「スマート眼精疲労防止ガジェット」です。Arduino (UNO R4 WiFi) と Python (Windowsゲートウェイ)、およびGoogleスプレッドシート（GAS）が連携して動作します。
 
-## 動作に必要なもの
+---
 
-| コンポーネント | 役割 | 必須度 |
-|---|---|---|
-| **Arduino** (`eyecare-template.ino` に必要な情報を書き込んだもの) | 着席検知・タイマー・休憩誘導・一時停止・手かざし検知・ログ送信 | **必須** |
-| **Python スクリプト** (`udp-logger.py`) | Windowsデスクトップ通知の表示 | 任意 |
+## 主な機能と特徴
 
-> **Pythonスクリプトがなくても、Googleスプレッドシートへのログ記録は動作します。**
-> Arduino が直接 Google Apps Script に HTTPS 送信するため、PC は不要です。
+### 1. 着席検知＆タイマー
+超音波センサーでデスクの前に人がいる（距離が80cm以内）ときだけ作業時間を累積します。離席すると自動で一時停止し、戻ると再開します。
+
+### 2. リッチな休憩アラート
+作業が20分に達すると、赤LED、OLEDディスプレイのカウントダウン、およびブザーのメロディ（ドラクエ宿屋風・ポケモン回復風など）で目の休憩（20秒間）を促します。PCにデスクトップ通知も送信されます。
+
+### 3. ジェスチャー操作（一時停止・再開）
+* **一時停止**: 作業中にセンサーに手をかざす（15cm以内で1秒）と、マリオのポーズ音（「ミドミド」）が鳴り、タイマーが一時停止状態（`PAUSED`）になります。
+* **再開**: ポーズ中または休憩完了後（`READY?`）に再度手をかざす、あるいはPCでEnterキーを押すと、マリオのポーズ音（または完了音）とともに計測が再開します。
+
+### 4. OLED自動スリープ（消灯）機能
+ディスプレイの焼き付き防止および省電力のため、80cm以内に人がいなくなって **5分（テスト時は10秒）** 経過すると、OLED画面を完全に消灯します。人が戻ってくると瞬時に復帰します（※休憩中は表示を維持します）。
+
+### 5. 前日グラフ画像のPCローカル自動保存
+日付が変わって最初のログ送信が行われた際、GASとPython（`udp-logger.py`）が自動連携し、前日分の時間帯別アイケア回数グラフ（PNG画像）をPCのローカルフォルダー `eyecare-0624/archive/` に自動保存します。Googleドライブの権限設定が不要なため、セキュリティエラーが起きません。
+
+---
 
 ## システム連携図
 
@@ -23,13 +35,13 @@ flowchart TD
     classDef gas fill:#E8F5E9,stroke:#388E3C,stroke-width:2px;
 
     User["👥 ユーザー"]:::user
-    GAS["📊 Googleスプレッドシート<br/>(GAS 直接送信)"]:::gas
+    GAS["📊 Googleスプレッドシート<br/>(GAS)"]:::gas
 
-    subgraph Hardware ["🤖 Arduino (本体・必須)"]
+    subgraph Hardware ["🤖 Arduino (本体)"]
         Arduino["Arduino UNO R4"]:::arduino
     end
 
-    subgraph Software ["💻 PC (任意連携)"]
+    subgraph Software ["💻 PC ゲートウェイ (推奨)"]
         Python["Python (udp-logger.py)"]:::python
     end
 
@@ -43,49 +55,42 @@ flowchart TD
     User -->|④-B PCでEnterキー入力| Python
     Python -->|⑤-B 再開信号<br/>UDP: RESET_OK| Arduino
 
-    %% ログ記録
-    Arduino -->|⑥ ログ送信<br/>HTTPS POST| GAS
-    GAS -.->|⑦ 次のサイクルへ| Arduino
+    %% ログ記録とローカル画像保存
+    Arduino -->|⑥-A (PC経由再開時) 再開イベント<br/>UDP: RESTART_EVENT| Python
+    Python -->|⑦-A ログ送信<br/>POST {client: 'pc'}| GAS
+    GAS -->|⑧-A 前日のグラフ画像を返却<br/>Base64| Python
+    Python -->|⑨-A ローカルフォルダにPNG保存<br/>archive/| Python
+
+    %% Arduino直接送信（バックアップ）
+    Arduino -.->|⑥-B (PC未起動時) 直接ログ送信<br/>POST {client: 'arduino'}| GAS
 ```
 
-## 各コンポーネントの役割
+---
 
-### 1. Arduino (`eyecare-template.ino` / `eyecare-0621.ino`)
-*   **着席検知**: 超音波センサーで80cm以内に人がいるか監視します。
-*   **タイマー管理**: 人がいる間だけ作業時間を累積します。
-*   **休憩誘導**: 休憩時間になるとOLEDに残り秒数を表示し、赤LEDとブザー（ドラクエ・ポケモン回復風メロディ）でアラートを出します。
-*   **再開検知**: センサーへの手かざし（15cm以内で1秒）、またはPC側からの再開合図を受信して計測モードに復帰します。
-*   **一時停止（中断）機能**: 作業中にセンサーに手をかざす（15cm以内で1秒）と、タイマーのカウントを一時停止できます。再度手をかざすと、一時停止した時点の累積時間から計測を再開します。
+## ファイル構成
 
-### 2. Python Gateway (`udp-logger.py`) ※任意
-*   **通知**: Arduinoからの信号を受け取り、Windowsのデスクトップ通知を表示します。
-*   **休憩管理**: 20秒のカウントダウンを画面に表示します。
-*   **制御**: ユーザーがEnterキーを押すと、Arduinoに再開の信号（UDP: `RESET_OK`）を返します（バックアップ操作）。
+* **Arduino スケッチ**: `C:\Users\sora2\OneDrive\ドキュメント\Arduino\eyecare-0624\eyecare-0624.ino`
+* **Arduino テンプレート**: `C:\work2\eyecare\eyecare-template\eyecare-template.ino`
+* **Python スクリプト**: `C:\Users\sora2\OneDrive\ドキュメント\udp-logger.py`
+* **Python テンプレート**: `C:\work2\udp-logger-template.py`
+* **GAS（スプレッドシート）コード**: `C:\work2\gas\gas-code.js`
+* **アーカイブ画像保存先**: `C:\Users\sora2\OneDrive\ドキュメント\Arduino\eyecare-0624\archive\`
 
-## 導入方法
+---
 
-### ハードウェア構成
-*   Arduino UNO R4 WiFi
-*   超音波センサー (HC-SR04)
-*   OLEDディスプレイ (SSD1306, 128x64)
-*   LED（赤・緑）
-*   パッシブブザー（回路図では都合上piezo buzzerに置き換えています）
+## 導入とセットアップ
 
-### セットアップ
-1.  **Arduino**:
-    *   `ssid` と `password` を自分のWi-Fi環境に合わせて書き換えます。
-    *   `pc_ip` をPCのIPアドレスに書き換えます。
-    *   Arduino IDEでスケッチを書き込みます。
-2.  **Python（任意・Windows通知が必要な場合のみ）**:
-    *   Pythonをインストール済みであることを確認します。
-    *   `python udp-logger.py` を実行します。
-    *   ファイアウォールの警告が出た場合は、UDP 5005ポートの通信を許可してください。
+### 1. Arduinoのセットアップ
+1. `eyecare-0624.ino` をArduino IDEで開きます。
+2. ご自身の環境に合わせて `ssid`、`password`、`pc_ip` (PCのローカルIPアドレス) を書き換えます。
+3. `GAS_PATH` にGoogleスプレッドシートからデプロイしたWebアプリのURLのIDを設定します。
+4. Arduinoにスケッチを書き込みます。
 
-## 使い方
-1.  Arduinoデバイスを起動します。緑LEDが点灯しカウントダウンが始まります。（離席すると中断）
-2.  20分経過するとArduinoが休憩モード（20秒）に入ります。（PCでPythonを起動している場合はWindows通知も届きます）
-3.  20秒経過後、超音波センサーに手をかざす（15cm以内で1秒間）と、次のサイクルが始まりGoogleスプレッドシートに自動でログが記録されます。PCでEnterキーを押すことでも再開できます。
+### 2. GAS（Googleスプレッドシート）のセットアップ
+1. [Googleスプレッドシート](https://docs.google.com/spreadsheets/d/1GVeTNaiIqg9THnKGMKAm8ZsvyVecBAWqQ8LLO331-pg/edit?usp=sharing) の「拡張機能」 ＞ 「Apps Script」を開きます。
+2. エディタ内のコードを `gas-code.js` の内容で上書きし、保存します。
+3. 「デプロイ」 ＞ 「デプロイの管理」からバージョンを「新バージョン」にして再デプロイします。
 
-[アイケアスプレッドシート　ログ](https://docs.google.com/spreadsheets/d/1GVeTNaiIqg9THnKGMKAm8ZsvyVecBAWqQ8LLO331-pg/edit?usp=sharing)
-
-![回路図（6/15更新）](image.png)
+### 3. Python（PC）のセットアップ
+1. `udp-logger.py` 内の `GAS_URL` を、ご自身のWebアプリデプロイURLに書き換えます。
+2. コマンドプロンプトやPowerShellで `python udp-logger.py` を実行してゲートウェイを起動します。

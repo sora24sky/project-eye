@@ -5,12 +5,16 @@ import time
 import subprocess
 import threading
 import msvcrt
+import base64
+import os
 from datetime import datetime
 
-# --- 設定 (各自の環境に合わせて書き換えてください) ---
-GAS_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL"
+# --- 設定 ---
+GAS_URL = "YOUR_GAS_SCRIPT_URL"
 UDP_IP = "0.0.0.0"
 UDP_PORT = 5005
+# ログ保存先ディレクトリ
+ARCHIVE_DIR = r"C:\Users\sora2\OneDrive\ドキュメント\Arduino\eyecare-0624\archive"
 
 waiting_for_reset = False
 target_addr = None
@@ -22,18 +26,54 @@ def send_desktop_notification(title, message):
     subprocess.Popen(["powershell", "-Command", ps_cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def log_to_google_sheets(trigger):
-    """Google Sheetsにログを送信する共通関数"""
+    """Google Sheetsにログを送信し、返ってきたアーカイブ画像をローカルに保存する"""
     print(f"[{datetime.now().strftime('%H:%M:%S')}] --> Logging to Google Sheets... (trigger: {trigger})")
     try:
-        payload = json.dumps({"message": "EYE_CARE_COMPLETE", "trigger": trigger}).encode("utf-8")
+        # 送信元がPCであることを示す client: "pc" を追加
+        payload = json.dumps({
+            "message": "EYE_CARE_COMPLETE",
+            "trigger": trigger,
+            "client": "pc"
+        }).encode("utf-8")
+        
         req = urllib.request.Request(
             GAS_URL,
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST"
         )
-        with urllib.request.urlopen(req, timeout=10) as res:
-            print(f"[SUCCESS] Logged: {res.read().decode('utf-8')}")
+        with urllib.request.urlopen(req, timeout=15) as res:
+            response_body = res.read().decode('utf-8')
+            
+            try:
+                res_json = json.loads(response_body)
+                status = res_json.get("status", "")
+                archive = res_json.get("archive", None)
+                
+                if status == "OK":
+                    if archive and archive.get("data") and archive.get("filename"):
+                        filename = archive["filename"]
+                        b64_data = archive["data"]
+                        
+                        # ディレクトリの作成
+                        if not os.path.exists(ARCHIVE_DIR):
+                            os.makedirs(ARCHIVE_DIR)
+                            print(f"[{datetime.now().strftime('%H:%M:%S')}] Created archive directory: {ARCHIVE_DIR}")
+                            
+                        filepath = os.path.join(ARCHIVE_DIR, filename)
+                        
+                        # Base64デコードして画像として書き込み
+                        with open(filepath, "wb") as f:
+                            f.write(base64.b64decode(b64_data))
+                        print(f"[{datetime.now().strftime('%H:%M:%S')}] 💾 [SAVED] Archive image saved to: {filepath}")
+                    else:
+                        print(f"[SUCCESS] Log recorded successfully (No archive image to save today).")
+                else:
+                    print(f"[WARNING] Server responded with status: {status}")
+            except json.JSONDecodeError:
+                # レスポンスが単純な文字列だった場合のフォールバック
+                print(f"[SUCCESS] Logged: {response_body}")
+                
     except Exception as e:
         print(f"[ERROR] Logging failed: {e}")
 
@@ -85,9 +125,10 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
 
 print("==================================================")
-print("  PC Smart Eye-Care Gateway (v2 - Gesture + Enter)")
+print("  PC Smart Eye-Care Gateway (v3 - Local Archiver)")
 print("==================================================")
 print(f"Listening on UDP port {UDP_PORT}...\n")
+print(f"Archive directory set to: {ARCHIVE_DIR}\n")
 
 try:
     while True:
