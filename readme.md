@@ -91,6 +91,13 @@ flowchart TD
 2. エディタ内のコードを `gas-code.js` の内容で上書きし、保存します。
 3. 「デプロイ」 ＞ 「デプロイの管理」からバージョンを「新バージョン」にして再デプロイします。
 
+<<<<<<< HEAD
 ### 3. Python（PC）のセットアップ
 1. `udp-logger.py` 内の `GAS_URL` を、ご自身のWebアプリデプロイURLに書き換えます。
 2. コマンドプロンプトやPowerShellで `python udp-logger.py` を実行してゲートウェイを起動します。
+=======
+[アイケアスプレッドシート　ログ](https://docs.google.com/spreadsheets/d/1GVeTNaiIqg9THnKGMKAm8ZsvyVecBAWqQ8LLO331-pg/edit?usp=sharing)  
+[アイケアテスト動画](https://youtube.com/shorts/iXKd-fRjQpk?feature=share)
+
+![回路図（6/15更新）](image.png)
+>>>>>>> 440b68566d0178f217efa032ae696865d8678997
