@@ -28,35 +28,44 @@ PC常駐アプリ（Python）が動いているときはログ送信時に自動
 ## システム連携図
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor User as 👥 ユーザー
-    participant Arduino as 🤖 Arduino (UNO R4)
-    participant Python as 💻 Python (udp-logger)
-    participant GAS as 📊 GAS (スプレッドシート)
-    participant PS as 💻 PowerShell / タスクスケジューラ
+flowchart TD
+    %% スタイル定義
+    classDef arduino fill:#E1F5FE,stroke:#0288D1,stroke-width:2px;
+    classDef python fill:#FFF9C4,stroke:#FBC02D,stroke-width:2px;
+    classDef user fill:#FFE0B2,stroke:#F57C00,stroke-width:2px;
+    classDef gas fill:#E8F5E9,stroke:#388E3C,stroke-width:2px;
+    classDef powershell fill:#E0F7FA,stroke:#00ACC1,stroke-width:2px;
 
-    Note over User, Arduino: 【1】 休憩アラート（20分に1回）
-    Arduino->>Python: ① 20分経過を検知 (UDP: TIME_UP)
-    Python->>User: ② デスクトップ通知を表示
-    User->>User: ③ 20秒間の目の休憩
+    %% ノード定義
+    User["👥 ユーザー"]:::user
+    Arduino["🤖 Arduino"]:::arduino
+    Python["💻 PCアプリ (Python)"]:::python
+    GAS["📊 GAS (スプレッドシート)"]:::gas
+    PowerShell["💻 PowerShell"]:::powershell
 
-    Note over User, GAS: 【2】 計測再開 ＆ ログ記録 (PC経由ルート)
-    User->>Python: ④-A PCで Enter キー入力
-    Python->>Arduino: ⑤-A 再開指示 (UDP: RESET_OK)
-    Python->>GAS: ⑥-A ログ送信 (POST: client: pc)
-    GAS-->>Python: ⑦-A 前日のグラフ画像を返却 (Base64)
-    Python->>Python: ⑧-A ローカルフォルダに保存 (archive/)
+    %% 通常サイクル
+    subgraph Cycle ["【通常サイクル】"]
+        Arduino -->|"① 休憩通知"| Python
+        Python -->|"② 画面に通知"| User
+        User -->|"③ PCでキー入力"| Python
+        Python -->|"④ 再開指示"| Arduino
+    end
 
-    Note over User, GAS: 【3】 計測再開 ＆ ログ記録 (Arduino直接・PC未起動時)
-    User->>Arduino: ④-B 超音波センサーに手をかざす (1秒)
-    Arduino->>GAS: ⑤-B 直接ログ送信 (POST: client: arduino)
-    Note over Arduino, GAS: ※メモリ不足防止のため画像データは受け取らない
+    %% データ保存
+    subgraph LogSave ["【データ保存】"]
+        Python -->|"⑤ ログ送信"| GAS
+        GAS -->|"⑥ グラフ送信"| Python
+        Python -->|"⑦ 画像を保存"| Python
+    end
 
-    Note over GAS, PS: 【4】 PowerShellでの自動画像保存 (毎日 0:00 / 起動時)
-    PS->>GAS: ⑨ 昨日のデータ取得を要求 (GET /exec)
-    GAS-->>PS: ⑩ 前日のグラフ画像を返却 (Base64)
-    PS->>PS: ⑪ ローカルフォルダに保存 (archive/)
+    %% 常駐不要（バックアップ）
+    subgraph Backup ["【常駐不要ルート】"]
+        User -.->|"⑧ 手かざし再開"| Arduino
+        Arduino -.->|"⑨ 直接ログ送信"| GAS
+        PowerShell -->|"⑩ グラフ取得"| GAS
+        GAS -->|"⑪ グラフ送信"| PowerShell
+        PowerShell -->|"⑫ 画像を保存"| PowerShell
+    end
 ```
 
 ---
