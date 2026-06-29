@@ -52,7 +52,7 @@ unsigned long handGestureStartTime = 0;
 bool isHandDetected = false;
 
 // --- スリープ設定 ---
-const unsigned long SLEEP_TIMEOUT = 300000UL; // 本番用：5分 (テスト検証時は 10000UL に変更可能)
+const unsigned long SLEEP_TIMEOUT = 10000UL; // 10秒（離席後すぐにスリープして焼き付き防止）
 unsigned long lastPresenceTime = 0;
 bool isOledSleeping = false;
 

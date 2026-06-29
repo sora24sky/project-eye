@@ -1,6 +1,13 @@
+param (
+    [string]$TargetDate = ""
+)
+
 # --- 設定 ---
 # GoogleスプレッドシートからデプロイしたWebアプリ（GAS）のURLを設定してください
 $GAS_URL = "YOUR_GAS_SCRIPT_URL"
+if ($TargetDate -ne "") {
+    $GAS_URL = "$GAS_URL?date=$TargetDate"
+}
 
 # ログ保存先ディレクトリ（マイドキュメント配下のフォルダを指定）
 $docPath = [Environment]::GetFolderPath([Environment+SpecialFolder]::MyDocuments)
@@ -12,10 +19,10 @@ if (-not (Test-Path $ARCHIVE_DIR)) {
 }
 
 $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-"[$timestamp] Script started" | Out-File -FilePath $LOG_FILE -Append -Encoding UTF8
+"[$timestamp] Script started (TargetDate: $TargetDate)" | Out-File -FilePath $LOG_FILE -Append -Encoding UTF8
 
 try {
-    "[$timestamp] Fetching from GAS..." | Out-File -FilePath $LOG_FILE -Append -Encoding UTF8
+    "[$timestamp] Fetching from GAS (URL: $GAS_URL)..." | Out-File -FilePath $LOG_FILE -Append -Encoding UTF8
     $response = Invoke-RestMethod -Uri $GAS_URL -Method Get -TimeoutSec 20
     "[$timestamp] Response received. Status: $($response.status)" | Out-File -FilePath $LOG_FILE -Append -Encoding UTF8
     

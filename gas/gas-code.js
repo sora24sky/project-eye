@@ -72,14 +72,26 @@ function doPost(e) {
 //  PC側（PowerShell自動実行）から前日分のグラフ画像データを取得するためのエンドポイント
 // ------------------------------------------------------------
 function doGet(e) {
-  const targetDate = new Date();
-  targetDate.setDate(targetDate.getDate() - 1); // 1日前（昨日）
+  let targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() - 1); // デフォルトは昨日（1日前）
+
+  // クエリパラメータで日付が指定されている場合（例: ?date=2026-06-27）
+  if (e && e.parameter && e.parameter.date) {
+    try {
+      const parsedDate = new Date(e.parameter.date);
+      if (!isNaN(parsedDate.getTime())) {
+        targetDate = parsedDate;
+      }
+    } catch (err) {
+      // パース失敗時は昨日の日付をそのまま使用
+    }
+  }
 
   try {
-    // 昨日のダッシュボードを集計・更新して確定
+    // 対象日のダッシュボードを集計・更新して確定
     updateDashboard_(targetDate);
     
-    // 昨日のグラフ画像をBase64で取得
+    // 対象日のグラフ画像をBase64で取得
     const archiveData = getDailyChartAsBase64_(targetDate);
     
     const response = {
