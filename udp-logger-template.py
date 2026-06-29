@@ -13,8 +13,9 @@ from datetime import datetime
 GAS_URL = "YOUR_GAS_SCRIPT_URL"
 UDP_IP = "0.0.0.0"
 UDP_PORT = 5005
-# ログ保存先ディレクトリ
-ARCHIVE_DIR = r"C:\Users\sora2\OneDrive\ドキュメント\Arduino\eyecare-0624\archive"
+# ログ保存先ディレクトリ（各自の環境に合わせて書き換えてください）
+# 例: r"C:\Users\YOUR_PC_USERNAME\OneDrive\ドキュメント\Arduino\eyecare-0624\archive"
+ARCHIVE_DIR = r"YOUR_LOCAL_ARCHIVE_DIRECTORY_PATH"
 
 waiting_for_reset = False
 target_addr = None
