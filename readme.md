@@ -10,7 +10,7 @@ Arduino (UNO R4 WiFi) と Python (PC常駐アプリ)、Google Apps Script (GAS) 
 | # | 機能 | 概要 |
 |---|------|------|
 | 1 | **着席検知＆タイマー** | 超音波センサーで着席を判定し、在席中のみ作業時間を累積 |
-| 2 | **休憩アラート** | 20分経過でLED・OLEDカウントダウン・ブザー・PC通知を同時に発報 |
+| 2 | **休憩アラート** | 20分経過でLED・OLEDカウントダウン・ブザー・PC通知 |
 | 3 | **ジェスチャー操作** | センサーに1秒手かざしで一時停止・再開。PCのEnterキーでも再開可能 |
 | 4 | **OLEDスリープ** | 離席10秒後に画面を自動消灯（焼き付き・省電力対策） |
 | 5 | **前日グラフ自動保存** | 毎日0:00にタスクスケジューラ＋PowerShellが前日分グラフ画像をローカル保存 |
@@ -23,7 +23,7 @@ Arduino (UNO R4 WiFi) と Python (PC常駐アプリ)、Google Apps Script (GAS) 
 - Arduino UNO R4 WiFi
 - 超音波センサー (HC-SR04)
 - LED × 2（赤・緑）
-- ブザー（圧電スピーカー）
+- パッシブブザー（圧電スピーカー）
 - OLED ディスプレイ（SSD1306、128×64、I2C接続）
 
 **ソフトウェア・アカウント**
@@ -156,6 +156,6 @@ sequenceDiagram
 >
 > 動作デモ動画は **2026/06/22 時点**の映像です。それ以降に実装された機能（一時停止時のポーズ音・OLED自動スリープ・PowerShell自動保存）は動画内に反映されていません。
 
-[📊 スプレッドシート ログ](https://docs.google.com/spreadsheets/d/1GVeTNaiIqg9THnKGMKAm8ZsvyVecBAWqQ8LLO331-pg/edit?usp=sharing)　　[🎬 テスト動画](https://youtube.com/shorts/iXKd-fRjQpk?feature=share)
+[🎬 テスト動画](https://youtube.com/shorts/iXKd-fRjQpk?feature=share)
 
 ![回路図（6/15更新）](image.png)
