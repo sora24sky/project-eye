@@ -17,7 +17,7 @@
 * **再開**: ポーズ中または休憩完了後（`READY?`）に再度手をかざす、あるいはPCでEnterキーを押すと、ポーズ音または完了音とともに計測が再開します。
 
 ### 4. OLED自動スリープ（消灯）機能
-ディスプレイの焼き付き防止および省電力のため、80cm以内に人がいなくなって **5分（テスト時は10秒）** 経過すると、OLED画面を完全に消灯します。人が戻ってくると瞬時に復帰します（※休憩中は表示を維持します）。
+ディスプレイの焼き付き防止および省電力のため、80cm以内に人がいなくなって **10秒** 経過すると、OLED画面を完全に消灯します。人が戻ってくると瞬時に復帰します（※休憩中は表示を維持します）。
 
 ### 5. 前日グラフ画像の自動ローカル保存
 日付が変わって最初のログ送信が行われた際、自動で前日分の時間帯別アイケア回数グラフ（PNG画像）をPCのローカルフォルダー `archive/` に保存します。
@@ -46,33 +46,33 @@ flowchart TD
     subgraph Software ["💻 PC ゲートウェイ & 自動保存"]
         Python["Python (udp-logger.py)"]:::python
         PowerShell["PowerShell (get_archive.ps1)"]:::powershell
-        TaskScheduler[["📅 タスクスケジューラ<br/>(毎日 0:00 / 起動時)"]]:::powershell
+        TaskScheduler["📅 タスクスケジューラ<br/>(毎日 0:00 / 起動時)"]:::powershell
     end
 
     %% フロー関係
-    Arduino -->|① 20分経過<br/>UDP: TIME_UP| Python
-    Python -->|② Windows通知を表示| User
-    User -->|③ 20秒休憩| User
+    Arduino -->|"① 20分経過<br/>UDP: TIME_UP"| Python
+    Python -->|"② Windows通知を表示"| User
+    User -->|"③ 20秒休憩"| User
 
     %% 再開分岐
-    User -->|④-A センサーに手かざし 1秒| Arduino
-    User -->|④-B PCでEnterキー入力| Python
-    Python -->|⑤-B 再開信号<br/>UDP: RESET_OK| Arduino
+    User -->|"④-A センサーに手かざし 1秒"| Arduino
+    User -->|"④-B PCでEnterキー入力"| Python
+    Python -->|"⑤-B 再開信号<br/>UDP: RESET_OK"| Arduino
 
     %% ログ記録とローカル画像保存
-    Arduino -->|⑥-A (PC経由再開時) 再開イベント<br/>UDP: RESTART_EVENT| Python
-    Python -->|⑦-A ログ送信<br/>POST {client: 'pc'}| GAS
-    GAS -->|⑧-A 前日のグラフ画像を返却<br/>Base64| Python
-    Python -->|⑨-A ローカルフォルダにPNG保存<br/>archive/| Python
+    Arduino -->|"⑥-A (PC経由再開時) 再開イベント<br/>UDP: RESTART_EVENT"| Python
+    Python -->|"⑦-A ログ送信<br/>POST (client: pc)"| GAS
+    GAS -->|"⑧-A 前日のグラフ画像を返却<br/>Base64"| Python
+    Python -->|"⑨-A ローカルフォルダにPNG保存<br/>archive/"| Python
 
     %% Arduino直接送信（バックアップ）
-    Arduino -.->|⑥-B (PC未起動時) 直接ログ送信<br/>POST {client: 'arduino'}| GAS
+    Arduino -.->|"⑥-B (PC未起動時) 直接ログ送信<br/>POST (client: arduino)"| GAS
 
     %% PowerShellによる自動画像保存（常駐不要ルート）
-    TaskScheduler -->|⑩ トリガー起動| PowerShell
-    PowerShell -->|⑪ 昨日のデータ取得要求<br/>GET /exec| GAS
-    GAS -->|⑫ 前日のグラフ画像を返却<br/>Base64| PowerShell
-    PowerShell -->|⑬ ローカルフォルダにPNG保存<br/>archive/| PowerShell
+    TaskScheduler -->|"⑩ トリガー起動"| PowerShell
+    PowerShell -->|"⑪ 昨日のデータ取得要求<br/>GET /exec"| GAS
+    GAS -->|"⑫ 前日のグラフ画像を返却<br/>Base64"| PowerShell
+    PowerShell -->|"⑬ ローカルフォルダにPNG保存<br/>archive/"| PowerShell
 ```
 
 ---
@@ -116,6 +116,16 @@ PCが起動していない状態でも、毎日自動的に前日のグラフを
    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -File C:\path\to\your\get_archive.ps1"; $trigger = New-ScheduledTaskTrigger -Daily -At 00:00; $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable; Register-ScheduledTask -TaskName "SmartEyeCare_ArchiveDownloader" -Action $action -Trigger $trigger -Settings $settings -Force
    ```
    *(※ `C:\path\to\your\get_archive.ps1` の部分は、実際に配置した `get_archive.ps1` の絶対パスに書き換えてください)*
+
+> [!TIP]
+**【覚書】過去のグラフ画像を後から手動でダウンロードしたい場合（リカバリー手順）**
+PCの電源が切れていた等の理由で、過去の特定の日の画像がダウンロードされなかった場合、PowerShellから日付を指定して手動で取得し直すことができます。
+
+**実行コマンド例（2026年6月27日の画像を取り直す場合）**：
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\sora2\OneDrive\ドキュメント\Arduino\eyecare-0624\get_archive.ps1 -TargetDate "2026-06-27"
+```
+※取得したい日付を `YYYY-MM-DD` 形式で `-TargetDate` に指定して実行してください。
 
 ---
 
