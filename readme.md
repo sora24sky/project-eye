@@ -138,9 +138,6 @@ sequenceDiagram
 
 ---
 
-> [!NOTE]
-> テスト動画は **2026/06/22 時点**の映像です。一時停止時のポーズ音・OLEDスリープ・PowerShell自動保存はその後に追加された機能のため、動画内には映っていません。
-
-[🎬 テスト動画](https://youtube.com/shorts/iXKd-fRjQpk?feature=share)
+[🎬 テスト動画](https://youtube.com/shorts/bqjlP3qEHqo?feature=share)
 
 ![回路図](image.png)
