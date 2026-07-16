@@ -114,14 +114,6 @@ flowchart TD
     P -->|"HTTPS"| G
     G -->|"グラフ画像（Base64）"| P
     PS["🖥️ PowerShell（任意）"] -->|"HTTPS"| G
-```
-
-| 通信 | 説明 |
-|------|------|
-| **Arduino → GAS** | GASのWebアプリは302リダイレクトを返すため、①POSTでLocationヘッダを取得 → ②リダイレクト先にGETという2段階の通信を行う |
-| **GAS → Python** | ログ送信のレスポンスに前日分のグラフ画像をBase64で含めて返す。Pythonがデコードしてローカルに保存する |
-| **Arduino vs Python** | GASへの送信時、`client: "arduino"` か `"pc"` かで送信元を識別する。Arduinoはメモリが少ないため画像データを返さない |
-| **PowerShell → GAS** | 毎日0:00にGETリクエストで前日のグラフ画像を取得。PCが0:00に起動していなくても次回起動時に自動で実行される |
 
 ---
 
