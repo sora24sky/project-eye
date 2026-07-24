@@ -1,4 +1,4 @@
-# Smart Eye-Care System
+# スマートアイケア
 
 超音波センサーで着席を検知し、**20分ごとに20秒の目の休憩を促す**ガジェットです。  
 Arduino (UNO R4 WiFi)・Python・Google Apps Script (GAS) を組み合わせて動作します。
